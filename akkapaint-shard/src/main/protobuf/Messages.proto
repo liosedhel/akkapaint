@@ -1,0 +1,49 @@
+option java_package = "org.akkapaint.proto";
+
+message Pixel {
+    required int32 x = 1;
+    required int32 y = 2;
+}
+message DrawEvent {
+  repeated Pixel changes = 1;
+  required string color = 2;
+}
+
+message DrawSnapshot {
+    repeated DrawEvent changes = 1;
+    repeated string clients = 2;
+}
+
+message RegisterClient {
+    required string client = 1;
+}
+
+message ReRegisterClient {
+
+}
+
+message UnregisterClient {
+    required string client = 1;
+}
+
+message Changes {
+  repeated Pixel changes = 1;
+  required string color = 2;
+}
+
+message Draw {
+    repeated Pixel changes = 1;
+    required string color = 2;
+}
+
+message DrawEntity {
+    required int32 shardId = 1;
+    required int32 entityId = 2;
+    repeated Pixel changes = 3;
+    required string color = 4;
+}
+
+message ChangesOutput {
+    repeated int32 pixels = 1;
+    required string color = 2;
+}

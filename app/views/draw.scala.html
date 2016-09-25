@@ -1,0 +1,26 @@
+@*
+ * This template takes a single argument, a String containing a
+ * message to display.
+ *@
+@()
+
+@*
+ * Call the the `main` template with two arguments. The first
+ * argument is a `String` with the title of the page, the second
+ * argument is an `Html` object containing the body of the page.
+ *@
+@main("Drawing page") {
+
+    @*
+     * Get an `Html` object by calling the built-in Play welcome
+     * template and passing a `String` message.
+     *@
+
+    <h1>AkkaPaint
+        <input class="jscolor" value="#FF0000" align="top">
+        Brush size <input class="brushSize" type="range" min="1" max="20" step="1" value="3" />
+    </h1>
+    <canvas id="sketch" width="1600" height="800" style="border:1px solid #000000;"  ></canvas>
+
+
+}
