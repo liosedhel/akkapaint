@@ -2,6 +2,7 @@ Akka Paint
 =================================
 Akka Paint is web application that implements scalable, multiuser, with real time changes painting board.
 This is a simple project demonstrating Play! and Akka features such as:
+
 * persistent actors
 * cluster sharding
 * akka-streams
@@ -13,6 +14,8 @@ Try it!
 * Simply type `sbt run` and go to the address [http://localhost:9000/demo](http://localhost:9000/demo).
 
 Open the second window to see real time changes!
+
+Or try the online demo: [http://demo.akkapaint.org/](http://demo.akkapaint.org/)
 
 Load the whole image
 ===========
