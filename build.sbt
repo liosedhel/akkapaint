@@ -29,7 +29,6 @@ libraryDependencies ++= {
     "com.typesafe.akka" %% "akka-persistence-cassandra" % "0.20",
     "org.iq80.leveldb"            % "leveldb"          % "0.7",
     "org.fusesource.leveldbjni"   % "leveldbjni-all"   % "1.8",
-    "com.trueaccord.scalapb" %% "scalapb-runtime" % "0.4.20",
     "org.scalatestplus.play" %% "scalatestplus-play" % "1.5.0-RC1" % Test
   )
 }

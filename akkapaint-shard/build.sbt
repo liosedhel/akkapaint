@@ -12,14 +12,13 @@ libraryDependencies ++= {
     "com.typesafe.akka" %% "akka-remote" % akkaV,
     "com.typesafe.akka" %% "akka-cluster" % akkaV,
     "com.typesafe.akka" %% "akka-persistence-cassandra" % "0.20",
-    "com.trueaccord.scalapb" %% "scalapb-runtime" % "0.4.20",
     "org.scalatestplus.play" %% "scalatestplus-play" % "1.5.0-RC1" % Test
   )
 }
 
 
-import com.trueaccord.scalapb.{ScalaPbPlugin => PB}
 
-PB.flatPackage in PB.protobufConfig := true
+PB.targets in Compile := Seq(
+  scalapb.gen() -> (sourceManaged in Compile).value
+)
 
-PB.protobufSettings
