@@ -7,6 +7,8 @@ This is a simple project demonstrating Play! and Akka features such as:
 * cluster sharding
 * akka-streams
 
+More info about the project can be found [here](http://virtuslab.com/blog/akkapaint-simplicity-and-power-of-akka/).
+
 Try it!
 ===========
 
@@ -19,5 +21,5 @@ Or try the online demo: [http://demo.akkapaint.org/](http://demo.akkapaint.org/)
 
 Load the whole image
 ===========
-Type `sbt "runMain org.akkapaint.AkkaPaintSimulationMain"` to load default image. It will send whole image pixel by pixel (aka. stress test ;))
+Type `sbt "runMain org.akkapaint.perf.AkkaPaintSimulationMain"` to load default image. It will send whole image pixel by pixel (aka. stress test ;))
 
