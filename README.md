@@ -1,4 +1,4 @@
-Akka Paint
+Akka Paint [![Build Status](https://travis-ci.org/liosedhel/akkapaint.svg?branch=master)](https://travis-ci.org/liosedhel/akkapaint)
 =================================
 Akka Paint is web application that implements scalable, multiuser, with real time changes painting board.
 This is a simple project demonstrating Play! and Akka features such as:
