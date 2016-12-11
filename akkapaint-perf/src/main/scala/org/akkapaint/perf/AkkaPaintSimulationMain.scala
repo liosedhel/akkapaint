@@ -15,7 +15,7 @@ object AkkaPaintSimulationMain extends App {
   implicit val materializer = ActorMaterializer()
 
   val webSocketFlow = Http()
-    .webSocketClientFlow(WebSocketRequest("ws://liosedhel.pl:9000/socket"))
+    .webSocketClientFlow(WebSocketRequest("ws://localhost:9000/socket"))
 
   val hugeImage = ImageIO.read(getClass.getResource("/horses.jpg"))
 
