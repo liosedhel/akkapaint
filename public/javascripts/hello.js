@@ -8,7 +8,6 @@ exampleSocket.onopen = function(evt) {  };
 
 exampleSocket.onmessage = function (event) {
     var data = JSON.parse(event.data);
-    console.log(data);
     for (var i = 0; i < data.pixels.length; i += 2) {
         sketcher.updateCanvasFromServer(data.pixels[i], data.pixels[i+1], data.color);
     }

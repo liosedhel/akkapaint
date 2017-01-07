@@ -33,7 +33,7 @@ class AkkaPaintSimulation extends Simulation {
     color: String
   )
   val testDraw = Json(DrawOutput(Seq(0, 0, 0, 1, 1, 1), "#BBBBBB")).toBareString
-  println(testDraw)
+
   val hugeImage = ImageIO.read(getClass.getResource("/anime_big.jpg"))
 
   val array = ImageUtils.convertTo2DUsingGetRGB(hugeImage)

@@ -31,6 +31,11 @@ lazy val akkaPaintHistory = (project in file("akkapaint-history"))
   .settings(name := "AkkaPaint-History")
   .settings(commonSettings: _*)
   .dependsOn(akkaPaintShard)
+  .settings(libraryDependencies ++= Seq(
+    "joda-time" % "joda-time" % "2.9.6",
+    "com.datastax.cassandra" % "cassandra-driver-core" % "3.1.2",
+    "com.lightbend.akka" %% "akka-stream-alpakka-cassandra" % "0.3"
+  ))
 
 lazy val akkaPaintPerf = (project in file("akkapaint-perf"))
   .settings(name := "AkkaPaint-Perf")
@@ -50,7 +55,8 @@ lazy val akkaDependencies = {
     "com.typesafe.akka" %% "akka-cluster-sharding" % akkaV,
     "com.typesafe.akka" %% "akka-remote" % akkaV,
     "com.typesafe.akka" %% "akka-cluster" % akkaV,
-    "com.typesafe.akka" %% "akka-persistence-cassandra" % "0.21"
+    "com.typesafe.akka" %% "akka-persistence-query-experimental" % akkaV,
+    "com.typesafe.akka" %% "akka-persistence-cassandra" % "0.22"
   )
 }
 
