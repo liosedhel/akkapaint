@@ -2,11 +2,14 @@ package org.akkapaint.history
 
 import java.util.UUID
 
+import akka.Done
 import akka.actor.ActorSystem
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
-import akka.stream.alpakka.cassandra.scaladsl.{CassandraSink, CassandraSource}
-import com.datastax.driver.core.{Cluster, SimpleStatement}
+import akka.stream.alpakka.cassandra.scaladsl.CassandraSource
+import akka.stream.scaladsl.{Flow, Keep, Sink}
+import com.datastax.driver.core._
 
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 
 object AkkaPaintMigration extends App {
@@ -31,8 +34,7 @@ object AkkaPaintMigration extends App {
     timestamp = ? and timebucket = ? """
 
   val addTagToEvents =
-    CassandraSink.apply[PrimaryKey](
-      1,
+    CassandraSinkSynchronous.apply[PrimaryKey](
       session.prepare(update_statement),
       (primaryKey, stmt) => {
         stmt.bind(
@@ -63,4 +65,13 @@ object AkkaPaintMigration extends App {
     timebucket: String
   )
 
+  object CassandraSinkSynchronous {
+    def apply[T](statement: PreparedStatement,
+                 statementBinder: (T, PreparedStatement) => BoundStatement)(
+                  implicit session: Session,
+                  ex: ExecutionContext): Sink[T, Future[Done]] =
+      Flow[T]
+        .map(t ⇒ session.execute(statementBinder(t, statement)))
+        .toMat(Sink.ignore)(Keep.right)
+  }
 }
