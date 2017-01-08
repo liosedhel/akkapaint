@@ -41,8 +41,8 @@ object AkkaPaintMigrationToTemp extends App {
           java.lang.Long.valueOf(primaryKey.sequenceNr),
           primaryKey.timestamp,
           primaryKey.timebucket,
-          "draw_event",
-          "org.akkapaint.proto.Messages.DrawEvent"
+          "org.akkapaint.proto.Messages.DrawEvent",
+          "draw_event"
         )
       }
     ).withAttributes(supervisionStrategy(resumingDecider))
