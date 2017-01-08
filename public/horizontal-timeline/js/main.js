@@ -1,10 +1,10 @@
 jQuery(document).ready(function($){
 
     $.get("image-history-list", function(changes){
-        console.log(changes);
+
         var events = $(".events ol");
         var eventsContent = $(".events-content ol");
-        console.log(events);
+
         changes.forEach(function(change){
             var dateSplitted = change.date.split("-");
             var year = dateSplitted[0];
@@ -13,14 +13,13 @@ jQuery(document).ready(function($){
             var hour =  ("00" + change.hour).slice(-2);
 			var minutes = ("00" + change.minutes).slice(-2);
             var dataDate = day + "/" + month + "/" + year + "T" + hour + ":" + minutes;
-            console.log(dataDate);
 
             var event = '<li><a href="#0" data-date="' + dataDate + '">' + dataDate + '</a></li>';
             events.append(event);
 
             var imageUrl = "/history/image/per-minute/" + change.date +"/"+ change.hour +"/"+ change.minutes;
             eventsContent.append('<li data-date="'+ dataDate +'"><h2>'+ change.date + '</h2>' +
-				'<em>'+ hour +':'+ minutes +'</em> <p><img width="800px" src="' + imageUrl + '" /></p>'+
+				'<em>'+ hour +':'+ minutes +'</em> <p><img width="800px" src="data:image/png;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" data-src="' + imageUrl + '" /></p>'+
 				'</li>');
         });
 
@@ -92,6 +91,9 @@ jQuery(document).ready(function($){
 					showNewContent(timelineComponents, timelineTotWidth, 'next');
 				}
 			});
+
+            showNewContent(timelineComponents, timelineTotWidth, 'next');
+            showNewContent(timelineComponents, timelineTotWidth, 'prev');
 		});
 	}
 
@@ -185,7 +187,8 @@ jQuery(document).ready(function($){
 			selectedContent = eventsContent.find('[data-date="'+ eventDate +'"]'),
 			selectedContentHeight = selectedContent.height();
 
-		console.log(selectedContent);
+		var selectedImage = $(selectedContent.find("img")[0])
+		selectedImage.attr('src', selectedImage.data('src'));
 
 		if (selectedContent.index() > visibleContent.index()) {
 			var classEnetering = 'selected enter-right',
@@ -258,9 +261,6 @@ jQuery(document).ready(function($){
 	}
 
 	function daydiff(first, second) {
-		console.log(first);
-		console.log(second);
-		console.log(Math.round((second-first)));
 	    return Math.round((second-first));
 	}
 

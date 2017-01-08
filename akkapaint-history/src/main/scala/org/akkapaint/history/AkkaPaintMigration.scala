@@ -4,12 +4,12 @@ import java.util.UUID
 
 import akka.Done
 import akka.actor.ActorSystem
-import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
+import akka.stream.{ ActorMaterializer, ActorMaterializerSettings, Supervision }
 import akka.stream.alpakka.cassandra.scaladsl.CassandraSource
-import akka.stream.scaladsl.{Flow, Keep, Sink}
+import akka.stream.scaladsl.{ Flow, Keep, Sink }
 import com.datastax.driver.core._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.ExecutionContext.Implicits.global
 
 object AkkaPaintMigrationToTemp extends App {
@@ -58,18 +58,22 @@ object AkkaPaintMigrationToTemp extends App {
     .runWith(insertToTemp).recover { case e => e.printStackTrace() }
 
   case class PrimaryKey(
-                         persistenceId: String,
-                         partitionNr: Long,
-                         sequenceNr: Long,
-                         timestamp: UUID,
-                         timebucket: String
-                       )
+    persistenceId: String,
+    partitionNr: Long,
+    sequenceNr: Long,
+    timestamp: UUID,
+    timebucket: String
+  )
 
   object CassandraSinkSynchronous {
-    def apply[T](statement: PreparedStatement,
-                 statementBinder: (T, PreparedStatement) => BoundStatement)(
-                  implicit session: Session,
-                  ex: ExecutionContext): Sink[T, Future[Done]] =
+    def apply[T](
+      statement: PreparedStatement,
+      statementBinder: (T, PreparedStatement) => BoundStatement
+    )(
+      implicit
+      session: Session,
+      ex: ExecutionContext
+    ): Sink[T, Future[Done]] =
       Flow[T]
         .map(t ⇒ session.execute(statementBinder(t, statement)))
         .toMat(Sink.ignore)(Keep.right)
@@ -131,10 +135,14 @@ object AkkaPaintMigrationFromTemp extends App {
   )
 
   object CassandraSinkSynchronous {
-    def apply[T](statement: PreparedStatement,
-                 statementBinder: (T, PreparedStatement) => BoundStatement)(
-                  implicit session: Session,
-                  ex: ExecutionContext): Sink[T, Future[Done]] =
+    def apply[T](
+      statement: PreparedStatement,
+      statementBinder: (T, PreparedStatement) => BoundStatement
+    )(
+      implicit
+      session: Session,
+      ex: ExecutionContext
+    ): Sink[T, Future[Done]] =
       Flow[T]
         .map(t ⇒ session.execute(statementBinder(t, statement)))
         .toMat(Sink.ignore)(Keep.right)
