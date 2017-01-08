@@ -3,19 +3,22 @@ package org.akkapaint.history
 import java.util.UUID
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
-import akka.stream.alpakka.cassandra.scaladsl.{ CassandraSink, CassandraSource }
-import com.datastax.driver.core.{ Cluster, SimpleStatement }
+import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
+import akka.stream.alpakka.cassandra.scaladsl.{CassandraSink, CassandraSource}
+import com.datastax.driver.core.{Cluster, SimpleStatement}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-/**
- * Created by liosedhel on 1/7/17.
- */
 object AkkaPaintMigration extends App {
 
+  import akka.stream.ActorAttributes.supervisionStrategy
+  import Supervision.resumingDecider
+
   implicit val system = ActorSystem()
-  implicit val mat = ActorMaterializer()
+  val decider: Supervision.Decider = {
+    case _ => Supervision.Resume
+  }
+  implicit val mat = ActorMaterializer(ActorMaterializerSettings(system).withSupervisionStrategy(decider))
   //#init-mat
 
   //#init-session
@@ -29,7 +32,7 @@ object AkkaPaintMigration extends App {
 
   val addTagToEvents =
     CassandraSink.apply[PrimaryKey](
-      8,
+      1,
       session.prepare(update_statement),
       (primaryKey, stmt) => {
         stmt.bind(
@@ -40,16 +43,17 @@ object AkkaPaintMigration extends App {
           primaryKey.timebucket
         )
       }
-    )
+    ).withAttributes(supervisionStrategy(resumingDecider))
 
-  CassandraSource(stmt).map { row =>
+  CassandraSource(stmt).withAttributes(supervisionStrategy(resumingDecider)).map { row =>
     val persistence_id = row.getString("persistence_id")
     val partition_nr = row.getLong("partition_nr")
     val sequence_nr = row.getLong("sequence_nr")
     val timestamp = row.getUUID("timestamp")
     val timebucket = row.getString("timebucket")
     PrimaryKey(persistence_id, partition_nr, sequence_nr, timestamp, timebucket)
-  }.runWith(addTagToEvents).recover { case e => e.printStackTrace() }
+  }.withAttributes(supervisionStrategy(resumingDecider))
+    .runWith(addTagToEvents).recover { case e => e.printStackTrace() }
 
   case class PrimaryKey(
     persistenceId: String,
