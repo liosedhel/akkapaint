@@ -3,7 +3,7 @@
 # ~~~~
 
 # An example controller showing a sample home page
-GET     /                           controllers.HomeController.index
+GET     /                           controllers.AkkaPaintController.index
 
 GET     /socket                     controllers.AkkaPaintController.socket
 
