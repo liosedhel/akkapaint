@@ -3,7 +3,7 @@ package org.akkapaint.history
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.persistence.cassandra.query.scaladsl.CassandraReadJournal
-import akka.persistence.query.{ EventEnvelope2, PersistenceQuery, TimeBasedUUID }
+import akka.persistence.query.{ EventEnvelope, PersistenceQuery, TimeBasedUUID }
 import akka.stream.scaladsl.{ Broadcast, GraphDSL, RunnableGraph }
 import akka.stream.{ ActorMaterializer, ClosedShape }
 import com.datastax.driver.core.Cluster
@@ -40,7 +40,7 @@ case class AkkaPaintHistoryGenerator() {
   private val originalEventStream = readJournal
     .eventsByTag("draw_event", readJournal.timeBasedUUIDFrom(DateTime.now().minusYears(5).getMillis))
     .map {
-      case EventEnvelope2(TimeBasedUUID(time), _, _, d: DrawEvent) =>
+      case EventEnvelope(TimeBasedUUID(time), _, _, d: DrawEvent) =>
         val timestamp = new DateTime(UUIDToDate.getTimeFromUUID(time))
         (timestamp, d)
     }
