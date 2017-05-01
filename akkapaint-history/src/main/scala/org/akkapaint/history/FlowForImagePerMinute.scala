@@ -6,6 +6,7 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import javax.imageio.ImageIO
 
+import akka.NotUsed
 import akka.stream.alpakka.cassandra.scaladsl.CassandraSink
 import akka.stream.scaladsl.Flow
 import com.datastax.driver.core.Session
@@ -29,7 +30,7 @@ case class FlowForImagePerMinute()(implicit session: Session, executionContext: 
 
   val defaultDate = DateTime.now()
 
-  val emitNewPicturePerMinute =
+  val emitNewPicturePerMinute: Flow[(DateTime, DrawEvent), ImageUpdatePerMinute, NotUsed] =
     Flow[(DateTime, DrawEvent)].scan(
       ImageUpdate(defaultDate, newDefaultImage())
     ) {

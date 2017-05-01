@@ -18,13 +18,13 @@ case class FlowForImagePerHour()(implicit session: Session, executionContext: Ex
   private val insert_statement_picture_per_hour =
     s"""INSERT INTO pictures_hours (date, hour, picture) VALUES (?,?,?);""".stripMargin
 
-  val defualtDate = "DefaultDate"
+  val emptyDate = "EMPTY_DATE"
 
   val emitNewPicturePerHour = Flow[ImageUpdatePerMinute].scan(
-    ImageUpdatePerHour(defualtDate, 0, ByteBuffer.wrap(Array.emptyByteArray))
+    ImageUpdatePerHour(emptyDate, 0, ByteBuffer.wrap(Array.emptyByteArray))
   ) {
       case (ImageUpdatePerHour(lastDate, lastHour, lastImage, _), ImageUpdatePerMinute(date, hour, _, image)) =>
-        if (lastDate != defualtDate && (lastDate != date || lastHour != hour))
+        if (lastDate != emptyDate && (lastDate != date || lastHour != hour))
           ImageUpdatePerHour(date, hour, image, emit = Some(ImageUpdatePerHour(lastDate, lastHour, lastImage)))
         else
           ImageUpdatePerHour(date, hour, image)
