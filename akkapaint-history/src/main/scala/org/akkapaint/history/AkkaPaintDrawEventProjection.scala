@@ -3,16 +3,15 @@ package org.akkapaint.history
 import java.util.UUID
 
 import akka.NotUsed
-import akka.persistence.{ PersistentActor, RecoveryCompleted }
 import akka.persistence.cassandra.query.scaladsl.CassandraReadJournal
-import akka.persistence.query.{ EventEnvelope, PersistenceQuery, TimeBasedUUID }
-import akka.stream.scaladsl.{ Broadcast, Flow, GraphDSL, RunnableGraph }
-import akka.stream.{ ActorMaterializer, ClosedShape }
+import akka.persistence.query.{EventEnvelope, PersistenceQuery, TimeBasedUUID}
+import akka.persistence.{PersistentActor, RecoveryCompleted}
+import akka.stream.scaladsl.{Broadcast, GraphDSL, RunnableGraph, Source}
+import akka.stream.{ActorMaterializer, ClosedShape}
 import akka.util.Timeout
 import com.datastax.driver.core.Cluster
 import com.typesafe.config.Config
-import org.akkapaint.history.AkkaPaintDrawEventProjection.{ NewOffsetSaved, SaveNewOffset, SavedAck, Start }
-import org.akkapaint.history.FlowForImagePerMinute.ImageUpdatePerMinute
+import org.akkapaint.history.AkkaPaintDrawEventProjection.{NewOffsetSaved, SaveNewOffset, SavedAck, Start}
 import org.akkapaint.proto.Messages.DrawEvent
 import org.joda.time.DateTime
 import org.slf4j.LoggerFactory
@@ -29,7 +28,6 @@ object AkkaPaintDrawEventProjection {
 
 case class AkkaPaintDrawEventProjection(
     akkaPaintHistoryConfig: Config
-//flow: Flow[(DateTime, DrawEvent), ImageUpdatePerMinute, NotUsed]
 ) extends PersistentActor {
 
   private val logger = LoggerFactory.getLogger(getClass)
@@ -48,13 +46,13 @@ case class AkkaPaintDrawEventProjection(
 
   import akka.pattern.ask
 
-  private val originalEventStream = readJournal
-    .eventsByTag("draw_event", readJournal.timeBasedUUIDFrom(DateTime.now().minusYears(5).getMillis))
+  private val originalEventStream: Source[(DateTime, DrawEvent, TimeBasedUUID), NotUsed] = readJournal
+    .eventsByTag("draw_event", TimeBasedUUID(readJournal.firstOffset))
     .mapAsync(1) {
-      case EventEnvelope(TimeBasedUUID(time), _, _, d: DrawEvent) =>
+      case EventEnvelope(offset @ TimeBasedUUID(time), _, _, d: DrawEvent) =>
         (self ? SaveNewOffset(time)).mapTo[SavedAck].map { _ =>
           val timestamp = new DateTime(UUIDToDate.getTimeFromUUID(time))
-          (timestamp, d)
+          (timestamp, d, offset)
         }
     }
 
@@ -69,16 +67,11 @@ case class AkkaPaintDrawEventProjection(
 
     val flowForImagePerMinute = FlowForImagePerMinute()
     val flowForImagePerHour = FlowForImagePerHour()
-    val sinkAllPicturesList = SinkAllPicturesList()
-    import flowForImagePerHour._
-    import flowForImagePerMinute._
-    import sinkAllPicturesList._
 
-    val bcast = builder.add(Broadcast[ImageUpdatePerMinute](3))
+    val bcast = builder.add(Broadcast[(DateTime, DrawEvent, TimeBasedUUID)](2))
 
-    bcast ~> emitNewPicturePerHour ~> sinkForImagePerHour
-    originalEventStream ~> emitNewPicturePerMinute ~> bcast ~> sinkForImagePerMinute
-    bcast ~> sinkSaveChangesList
+    bcast ~> flowForImagePerMinute.flow
+    originalEventStream ~> bcast ~> flowForImagePerHour.flow
     ClosedShape
   })
 
