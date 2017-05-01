@@ -3,16 +3,15 @@ package org.akkapaint.history
 import java.util.UUID
 
 import akka.NotUsed
-import akka.persistence.{ PersistentActor, RecoveryCompleted }
 import akka.persistence.cassandra.query.scaladsl.CassandraReadJournal
 import akka.persistence.query.{ EventEnvelope, PersistenceQuery, TimeBasedUUID }
-import akka.stream.scaladsl.{ Broadcast, Flow, GraphDSL, RunnableGraph }
+import akka.persistence.{ PersistentActor, RecoveryCompleted }
+import akka.stream.scaladsl.{ Broadcast, GraphDSL, RunnableGraph, Source }
 import akka.stream.{ ActorMaterializer, ClosedShape }
 import akka.util.Timeout
 import com.datastax.driver.core.Cluster
 import com.typesafe.config.Config
-import org.akkapaint.history.AkkaPaintDrawEventProjection.{ NewOffsetSaved, SaveNewOffset, SavedAck, Start }
-import org.akkapaint.history.FlowForImagePerMinute.ImageUpdatePerMinute
+import org.akkapaint.history.AkkaPaintDrawEventProjection.{ NewOffsetSaved, Start }
 import org.akkapaint.proto.Messages.DrawEvent
 import org.joda.time.DateTime
 import org.slf4j.LoggerFactory
@@ -22,14 +21,12 @@ import scala.concurrent.duration._
 object AkkaPaintDrawEventProjection {
 
   case object Start
-  case class SaveNewOffset(offset: UUID)
   case class NewOffsetSaved(offset: UUID)
   case class SavedAck()
 }
 
 case class AkkaPaintDrawEventProjection(
     akkaPaintHistoryConfig: Config
-//flow: Flow[(DateTime, DrawEvent), ImageUpdatePerMinute, NotUsed]
 ) extends PersistentActor {
 
   private val logger = LoggerFactory.getLogger(getClass)
@@ -46,19 +43,38 @@ case class AkkaPaintDrawEventProjection(
       CassandraReadJournal.Identifier
     )
 
-  import akka.pattern.ask
+  var lastOffset = readJournal.firstOffset
 
-  private val originalEventStream = readJournal
-    .eventsByTag("draw_event", readJournal.timeBasedUUIDFrom(DateTime.now().minusYears(5).getMillis))
-    .mapAsync(1) {
-      case EventEnvelope(TimeBasedUUID(time), _, _, d: DrawEvent) =>
-        (self ? SaveNewOffset(time)).mapTo[SavedAck].map { _ =>
-          val timestamp = new DateTime(UUIDToDate.getTimeFromUUID(time))
-          (timestamp, d)
-        }
+  override def receiveCommand: Receive = {
+    case Start =>
+      logger.info("Running history generation")
+      generatingHistoryGraph.run()
+  }
+
+  override def receiveRecover: Receive = {
+    case NewOffsetSaved(offset) => {
+      lastOffset = offset
+    }
+    case RecoveryCompleted => {
+      val timestamp = new DateTime(UUIDToDate.getTimeFromUUID(lastOffset)).toString("MM/dd/yyyy HH:mm:ss")
+      logger.info(s"Recovering AkkaPaintHistoryGenerator, last offset: $timestamp")
+      context.system.scheduler.schedule(1.minutes, 1.minutes)(saveSnapshot(NewOffsetSaved(lastOffset)))
+      self ! Start
+    }
+  }
+
+  override def persistenceId: String = "HistoryGenerator"
+
+  def originalEventStream: Source[(DateTime, DrawEvent, TimeBasedUUID), NotUsed] = readJournal
+    .eventsByTag("draw_event", TimeBasedUUID(lastOffset))
+    .map {
+      case EventEnvelope(offset @ TimeBasedUUID(time), _, _, d: DrawEvent) =>
+        lastOffset = time
+        val timestamp = new DateTime(UUIDToDate.getTimeFromUUID(time))
+        (timestamp, d, offset)
     }
 
-  private val generatingHistoryGraph = RunnableGraph.fromGraph(GraphDSL.create() { implicit builder: GraphDSL.Builder[NotUsed] =>
+  def generatingHistoryGraph = RunnableGraph.fromGraph(GraphDSL.create() { implicit builder: GraphDSL.Builder[NotUsed] =>
     import GraphDSL.Implicits._
 
     val cassandraCluster =
@@ -69,46 +85,13 @@ case class AkkaPaintDrawEventProjection(
 
     val flowForImagePerMinute = FlowForImagePerMinute()
     val flowForImagePerHour = FlowForImagePerHour()
-    val sinkAllPicturesList = SinkAllPicturesList()
-    import flowForImagePerHour._
-    import flowForImagePerMinute._
-    import sinkAllPicturesList._
 
-    val bcast = builder.add(Broadcast[ImageUpdatePerMinute](3))
+    val bcast = builder.add(Broadcast[(DateTime, DrawEvent, TimeBasedUUID)](2))
 
-    bcast ~> emitNewPicturePerHour ~> sinkForImagePerHour
-    originalEventStream ~> emitNewPicturePerMinute ~> bcast ~> sinkForImagePerMinute
-    bcast ~> sinkSaveChangesList
+    bcast ~> flowForImagePerMinute.flow
+    originalEventStream ~> bcast ~> flowForImagePerHour.flow
     ClosedShape
   })
-
-  var lastOffset: UUID = readJournal.firstOffset
-
-  self ! Start
-
-  override def receiveCommand: Receive = {
-    case Start =>
-      logger.info("Running history generation")
-      generatingHistoryGraph.run()
-    case SaveNewOffset(offset) => persist(NewOffsetSaved(offset)) { event =>
-      lastOffset = event.offset
-      sender() ! SavedAck()
-    }
-  }
-
-  override def receiveRecover: Receive = {
-    case NewOffsetSaved(offset) => {
-      lastOffset = offset
-    }
-    case RecoveryCompleted => {
-      val timestamp = new DateTime(UUIDToDate.getTimeFromUUID(lastOffset)).toString("MM/dd/yyyy HH:mm:ss")
-      logger.info(s"Recovering AkkaPaintHistoryGenerator, last offset: $timestamp")
-    }
-  }
-
-  context.system.scheduler.schedule(1.minutes, 5.minutes)(saveSnapshot(NewOffsetSaved(lastOffset)))
-
-  override def persistenceId: String = "HistoryGenerator"
 }
 
 import java.util.UUID
