@@ -41,7 +41,7 @@ class AkkaPaintActor() extends PersistentActor with ActorLogging {
 
   override def receiveCommand: Receive = {
     case Draw(changes, color) =>
-      persistAsync(new DrawEvent(changes.toSeq, color)) { de =>
+      persistAsync(new DrawEvent(changes, color)) { de =>
         updateState(de)
         changesNumber += 1
         if (changesNumber > 1000) {

@@ -1,24 +1,24 @@
 package org.akkapaint.history
 
+import akka.NotUsed
 import akka.persistence.query.Offset
-import akka.stream.alpakka.cassandra.scaladsl.CassandraSink
 import akka.stream.scaladsl.Sink
-import akka.{ Done, NotUsed }
 import com.datastax.driver.core.Session
 import org.akkapaint.history.ImageAggregationFlowFactory.ImageUpdateEmit
 import org.akkapaint.proto.Messages.DrawEvent
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 
-import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.ExecutionContext
 
-case class FlowForImagePerMinute()(implicit session: Session, executionContext: ExecutionContext) {
+case class FlowForImagePerMinute()(implicit session: Session, executionContext: ExecutionContext)
+    extends ((Offset => Unit) => Sink[(DateTime, DrawEvent, Offset), NotUsed]) {
 
   private val insert_statement_picture_per_minute =
     s"""INSERT INTO pictures_minutes (date, hour, minutes, picture) VALUES (?,?,?,?);"""
 
-  private val sinkForImagePerMinute: Sink[ImageUpdateEmit, Future[Done]] =
-    CassandraSink.apply[ImageUpdateEmit](
+  private val flowForImagePerMinute =
+    CassandraFlow.apply[ImageUpdateEmit](
       8,
       session.prepare(insert_statement_picture_per_minute),
       (data, stmt) => {
@@ -33,7 +33,7 @@ case class FlowForImagePerMinute()(implicit session: Session, executionContext: 
   private val insert_statement_changes_list =
     s"""INSERT INTO changes (year, date, hour, minutes) VALUES (?,?,?,?);"""
 
-  private val sinkSaveChangesList = CassandraSink.apply[ImageUpdateEmit](
+  private val flowForSaveChangesList = CassandraFlow.apply[ImageUpdateEmit](
     8,
     session.prepare(insert_statement_changes_list),
     (data, stmt) => {
@@ -45,11 +45,11 @@ case class FlowForImagePerMinute()(implicit session: Session, executionContext: 
     }
   )
 
-  val flow: Sink[(DateTime, DrawEvent, Offset), NotUsed] = {
-
+  override def apply(commitOffset: (Offset) => Unit): Sink[(DateTime, DrawEvent, Offset), NotUsed] = {
     ImageAggregationFlowFactory().generate(org.joda.time.Minutes.ONE)
-      .alsoTo(sinkSaveChangesList)
-      .to(sinkForImagePerMinute)
+      .via(flowForImagePerMinute)
+      .via(flowForSaveChangesList)
+      .to(Sink.foreach(t => commitOffset(t.offset)))
   }
 }
 

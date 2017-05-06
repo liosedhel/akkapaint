@@ -4,14 +4,13 @@ import java.util.UUID
 
 import akka.NotUsed
 import akka.persistence.cassandra.query.scaladsl.CassandraReadJournal
-import akka.persistence.query.{ EventEnvelope, PersistenceQuery, TimeBasedUUID }
+import akka.persistence.query.{ EventEnvelope, Offset, PersistenceQuery, TimeBasedUUID }
 import akka.persistence.{ PersistentActor, RecoveryCompleted }
-import akka.stream.scaladsl.{ Broadcast, GraphDSL, RunnableGraph, Source }
-import akka.stream.{ ActorMaterializer, ClosedShape }
+import akka.stream.ActorMaterializer
+import akka.stream.scaladsl.{ Sink, Source }
 import akka.util.Timeout
-import com.datastax.driver.core.Cluster
 import com.typesafe.config.Config
-import org.akkapaint.history.AkkaPaintDrawEventProjection.{ NewOffsetSaved, Start }
+import org.akkapaint.history.AkkaPaintDrawEventProjection.{ NewOffsetSaved, SaveNewOffset, Start }
 import org.akkapaint.proto.Messages.DrawEvent
 import org.joda.time.DateTime
 import org.slf4j.LoggerFactory
@@ -21,17 +20,18 @@ import scala.concurrent.duration._
 object AkkaPaintDrawEventProjection {
 
   case object Start
-  case class NewOffsetSaved(offset: UUID)
+  case class SaveNewOffset(offset: String)
+  case class NewOffsetSaved(offset: String)
   case class SavedAck()
 }
 
 case class AkkaPaintDrawEventProjection(
-    akkaPaintHistoryConfig: Config
+    persistenceId: String,
+    akkaPaintHistoryConfig: Config,
+    generateConsumer: (Offset => Unit) => Sink[(DateTime, DrawEvent, Offset), NotUsed]
 ) extends PersistentActor {
 
   private val logger = LoggerFactory.getLogger(getClass)
-
-  import scala.collection.JavaConverters._
 
   private implicit val materializer = ActorMaterializer()
 
@@ -48,22 +48,28 @@ case class AkkaPaintDrawEventProjection(
   override def receiveCommand: Receive = {
     case Start =>
       logger.info("Running history generation")
-      generatingHistoryGraph.run()
+      originalEventStream
+        .to(generateConsumer({
+          case TimeBasedUUID(uuid) => self ! SaveNewOffset(uuid.toString)
+          case _ =>
+        }))
+        .run()
+    case SaveNewOffset(offset) => //persist(NewOffsetSaved(offset)){ e => //is commented as for akkapaint use case there is no need to save each new offset
+      lastOffset = UUID.fromString(offset)
+    //}
   }
 
   override def receiveRecover: Receive = {
     case NewOffsetSaved(offset) => {
-      lastOffset = offset
+      lastOffset = UUID.fromString(offset)
     }
     case RecoveryCompleted => {
       val timestamp = new DateTime(UUIDToDate.getTimeFromUUID(lastOffset)).toString("MM/dd/yyyy HH:mm:ss")
       logger.info(s"Recovering AkkaPaintHistoryGenerator, last offset: $timestamp")
-      context.system.scheduler.schedule(1.minutes, 1.minutes)(saveSnapshot(NewOffsetSaved(lastOffset)))
+      context.system.scheduler.schedule(1.minutes, 1.minutes)(saveSnapshot(NewOffsetSaved(lastOffset.toString)))
       self ! Start
     }
   }
-
-  override def persistenceId: String = "HistoryGenerator"
 
   def originalEventStream: Source[(DateTime, DrawEvent, TimeBasedUUID), NotUsed] = readJournal
     .eventsByTag("draw_event", TimeBasedUUID(lastOffset))
@@ -73,25 +79,6 @@ case class AkkaPaintDrawEventProjection(
         val timestamp = new DateTime(UUIDToDate.getTimeFromUUID(time))
         (timestamp, d, offset)
     }
-
-  def generatingHistoryGraph = RunnableGraph.fromGraph(GraphDSL.create() { implicit builder: GraphDSL.Builder[NotUsed] =>
-    import GraphDSL.Implicits._
-
-    val cassandraCluster =
-      Cluster.builder()
-        .addContactPoints(akkaPaintHistoryConfig.getStringList("cassandra-journal.contact-points").asScala: _*)
-        .build()
-    implicit val session = cassandraCluster.connect("akka")
-
-    val flowForImagePerMinute = FlowForImagePerMinute()
-    val flowForImagePerHour = FlowForImagePerHour()
-
-    val bcast = builder.add(Broadcast[(DateTime, DrawEvent, TimeBasedUUID)](2))
-
-    bcast ~> flowForImagePerMinute.flow
-    originalEventStream ~> bcast ~> flowForImagePerHour.flow
-    ClosedShape
-  })
 }
 
 import java.util.UUID
