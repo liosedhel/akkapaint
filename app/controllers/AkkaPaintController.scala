@@ -1,25 +1,30 @@
 package controllers
 
-import java.io.ByteArrayInputStream
+import javax.inject.Named
 
+import akka.actor.ActorSystem
+import akka.cluster.singleton.{ ClusterSingletonProxy, ClusterSingletonProxySettings }
 import akka.stream.ActorMaterializer
 import com.datastax.driver.core.{ Cluster, SimpleStatement }
 import com.google.inject.Inject
 import com.typesafe.config.ConfigFactory
-import org.akkapaint.shard.cluster.{ AkkaPaintShardingCluster, BoardShardUtils }
-import BoardShardUtils.ShardingPixelsUtil
+import org.akkapaint.history.AkkaPaintDrawEventProjection.ResetProjection
 import org.akkapaint.proto.Messages.{ ChangesOutput, Draw, Pixel }
+import org.akkapaint.shard.cluster.BoardShardUtils.ShardingPixelsUtil
+import org.akkapaint.shard.cluster.{ AkkaPaintShardingCluster, BoardShardUtils }
+import org.joda.time.format.DateTimeFormat
 import play.api.libs.json.Json
 import play.api.libs.streams.ActorFlow
 import play.api.mvc.WebSocket.MessageFlowTransformer
-import play.api.mvc.{ Action, Controller, WebSocket }
+import play.api.mvc.{ Action, Controller, InjectedController, WebSocket }
 import services.ClientConnection
-import akka.stream.alpakka.cassandra.scaladsl._
-import play.api.libs.json._
-import org.joda.time.format.DateTimeFormat
+
 import scala.collection.JavaConverters._
 
-class AkkaPaintController @Inject() (akkaPaintShardingCluster: AkkaPaintShardingCluster) extends Controller {
+class AkkaPaintController @Inject() (
+    @Named("AkkaPaintHistory") akkaPaintHistoryActorSystem: ActorSystem,
+    akkaPaintShardingCluster: AkkaPaintShardingCluster
+) extends InjectedController {
 
   // Create an Akka system
   val akkaPaintWebConfig = ConfigFactory.load("akkapaint-web.conf")
@@ -75,7 +80,7 @@ class AkkaPaintController @Inject() (akkaPaintShardingCluster: AkkaPaintSharding
   def getImage(date: String, hour: Int) = Action {
     session.execute(getPicturesPerHours.bind(date, new Integer(hour))).asScala
       .map(row => row.getBytes("picture")).headOption match {
-        case Some(imageBytes) => Ok(imageBytes.array()).as("image/bmp")
+        case Some(imageBytes) => Ok(imageBytes.array()).as("image/jpeg")
         case None => NotFound
       }
   }
@@ -84,9 +89,21 @@ class AkkaPaintController @Inject() (akkaPaintShardingCluster: AkkaPaintSharding
   def getImagePerMinute(date: String, hour: Int, minute: Int) = Action {
     session.execute(getPicturesPerMinute.bind(date, new Integer(hour), new Integer(minute))).asScala
       .map(row => row.getBytes("picture")).headOption match {
-        case Some(imageBytes) => Ok(imageBytes.array()).as("image/bmp")
+        case Some(imageBytes) => Ok(imageBytes.array()).as("image/jpeg")
         case None => NotFound
       }
+  }
+
+  def regenerateHistory() = Action {
+    val historyGenerator = akkaPaintHistoryActorSystem.actorOf(
+      ClusterSingletonProxy.props(
+        singletonManagerPath = "/user/PicturePerMinuteGenerator",
+        settings = ClusterSingletonProxySettings(system).withRole("worker")
+      ),
+      name = "consumerProxy"
+    )
+    historyGenerator ! ResetProjection()
+    Ok(Json.toJson("Regeneration started"))
   }
 
 }

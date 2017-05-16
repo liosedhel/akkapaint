@@ -26,6 +26,8 @@ case class ImageAggregationFlowFactory()(implicit executionContext: ExecutionCon
 
   val defaultDate = DateTime.now().minusYears(10)
 
+  import javax.imageio.ImageIO
+
   def generate(timeSlot: ReadablePeriod): Flow[(DateTime, DrawEvent, Offset), ImageUpdateEmit, NotUsed] =
     Flow[(DateTime, DrawEvent, Offset)].scan(
       ImageUpdate(defaultDate, newDefaultImage(), offset = Offset.noOffset)
@@ -46,7 +48,7 @@ case class ImageAggregationFlowFactory()(implicit executionContext: ExecutionCon
 
     if (currentDateTime.minus(timeSlot).compareTo(lastEmitDateTime) > 0) {
       val baos = new ByteArrayOutputStream()
-      ImageIO.write(lastImage, "BMP", baos)
+      ImageIO.write(lastImage, "jpeg", baos)
       val byteImage = ByteBuffer.wrap(baos.toByteArray)
       val imageGeneratedWithinTimeSlot = ImageUpdateEmit(currentDateTime, byteImage, offset)
 
@@ -66,7 +68,12 @@ object AkkaPaintHistoryImageUtils {
   val maxWidth = 1600
   val maxHeight = 800
   def newDefaultImage(width: Int = maxWidth, height: Int = maxHeight) = {
-    new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
+    val image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
+    val graphics = image.createGraphics()
+
+    graphics.setPaint(new Color(255, 255, 255)) //set background color to white
+    graphics.fillRect(0, 0, width, height)
+    image
   }
 
   def updateImage(

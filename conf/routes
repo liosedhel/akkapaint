@@ -17,5 +17,7 @@ GET     /history/image/:date/:hour controllers.AkkaPaintController.getImage(date
 
 GET     /history/image/per-minute/:date/:hour/:minute controllers.AkkaPaintController.getImagePerMinute(date: String, hour:Int, minute: Int)
 
+POST    /history/regenerate         controllers.AkkaPaintController.regenerateHistory()
+
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file               controllers.Assets.versioned(path="/public", file: Asset)

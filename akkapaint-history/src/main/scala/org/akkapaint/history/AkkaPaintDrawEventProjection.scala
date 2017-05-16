@@ -6,11 +6,11 @@ import akka.NotUsed
 import akka.persistence.cassandra.query.scaladsl.CassandraReadJournal
 import akka.persistence.query.{ EventEnvelope, Offset, PersistenceQuery, TimeBasedUUID }
 import akka.persistence.{ PersistentActor, RecoveryCompleted }
-import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{ Sink, Source }
+import akka.stream.{ ActorMaterializer, KillSwitch, KillSwitches, UniqueKillSwitch }
+import akka.stream.scaladsl.{ Keep, Sink, Source }
 import akka.util.Timeout
 import com.typesafe.config.Config
-import org.akkapaint.history.AkkaPaintDrawEventProjection.{ NewOffsetSaved, SaveNewOffset, Start }
+import org.akkapaint.history.AkkaPaintDrawEventProjection.{ NewOffsetSaved, ResetProjection, SaveNewOffset, Start }
 import org.akkapaint.proto.Messages.DrawEvent
 import org.joda.time.DateTime
 import org.slf4j.LoggerFactory
@@ -23,6 +23,7 @@ object AkkaPaintDrawEventProjection {
   case class SaveNewOffset(offset: String)
   case class NewOffsetSaved(offset: String)
   case class SavedAck()
+  case class ResetProjection(offset: Option[String] = None)
 }
 
 case class AkkaPaintDrawEventProjection(
@@ -45,18 +46,30 @@ case class AkkaPaintDrawEventProjection(
 
   var lastOffset = readJournal.firstOffset
 
+  def startProjection(offset: UUID = lastOffset) = {
+    val (killSwitch, _) = originalEventStream(offset)
+      .viaMat(KillSwitches.single)(Keep.right)
+      .toMat(generateConsumer({
+        case TimeBasedUUID(uuid) => self ! SaveNewOffset(uuid.toString)
+        case _ =>
+      }))(Keep.both)
+      .run()
+    context.become(running(killSwitch))
+  }
+
   override def receiveCommand: Receive = {
     case Start =>
       logger.info("Running history generation")
-      originalEventStream
-        .to(generateConsumer({
-          case TimeBasedUUID(uuid) => self ! SaveNewOffset(uuid.toString)
-          case _ =>
-        }))
-        .run()
+      startProjection(lastOffset)
+  }
+
+  def running(killSwitch: KillSwitch): Receive = {
     case SaveNewOffset(offset) => //persist(NewOffsetSaved(offset)){ e => //is commented as for akkapaint use case there is no need to save each new offset
       lastOffset = UUID.fromString(offset)
     //}
+    case ResetProjection(offset) =>
+      killSwitch.shutdown()
+      startProjection(offset.map(UUID.fromString).getOrElse(readJournal.firstOffset))
   }
 
   override def receiveRecover: Receive = {
@@ -71,8 +84,8 @@ case class AkkaPaintDrawEventProjection(
     }
   }
 
-  def originalEventStream: Source[(DateTime, DrawEvent, TimeBasedUUID), NotUsed] = readJournal
-    .eventsByTag("draw_event", TimeBasedUUID(lastOffset))
+  def originalEventStream(firstOffset: UUID): Source[(DateTime, DrawEvent, TimeBasedUUID), NotUsed] = readJournal
+    .eventsByTag("draw_event", TimeBasedUUID(firstOffset))
     .map {
       case EventEnvelope(offset @ TimeBasedUUID(time), _, _, d: DrawEvent) =>
         lastOffset = time
