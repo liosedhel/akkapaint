@@ -3,11 +3,12 @@ package org.akkapaint.perf
 import java.awt.image.BufferedImage
 import javax.imageio.ImageIO
 
+import akka.{Done, NotUsed}
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.ws.{ TextMessage, WebSocketRequest }
+import akka.http.scaladsl.model.ws.{TextMessage, WebSocketRequest}
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{ Keep, Sink, Source }
+import akka.stream.scaladsl.{Keep, Sink, Source}
 import io.gatling.core.Predef._
 import io.gatling.http.Predef._
 import org.akkapaint.perf.utils.ImageUtils
@@ -16,6 +17,8 @@ import rapture.json.Json
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import rapture.json.jsonBackends.jawn._
+
+import scala.concurrent.Future
 
 class AkkaPaintSimulation extends Simulation {
 

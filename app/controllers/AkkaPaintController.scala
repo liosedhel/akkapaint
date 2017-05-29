@@ -10,13 +10,13 @@ import com.google.inject.Inject
 import com.typesafe.config.ConfigFactory
 import org.akkapaint.history.AkkaPaintDrawEventProjection.ResetProjection
 import org.akkapaint.proto.Messages.{ ChangesOutput, Draw, Pixel }
+import org.akkapaint.shard.cluster.AkkaPaintShardingCluster
 import org.akkapaint.shard.cluster.BoardShardUtils.ShardingPixelsUtil
-import org.akkapaint.shard.cluster.{ AkkaPaintShardingCluster, BoardShardUtils }
 import org.joda.time.format.DateTimeFormat
 import play.api.libs.json.Json
 import play.api.libs.streams.ActorFlow
 import play.api.mvc.WebSocket.MessageFlowTransformer
-import play.api.mvc.{ Action, Controller, InjectedController, WebSocket }
+import play.api.mvc.{ InjectedController, WebSocket }
 import services.ClientConnection
 
 import scala.collection.JavaConverters._
@@ -94,14 +94,15 @@ class AkkaPaintController @Inject() (
       }
   }
 
+  val historyGenerator = akkaPaintHistoryActorSystem.actorOf(
+    ClusterSingletonProxy.props(
+      singletonManagerPath = "/user/PicturePerMinuteGenerator",
+      settings = ClusterSingletonProxySettings(system)
+    ),
+    name = "consumerProxy"
+  )
+
   def regenerateHistory() = Action {
-    val historyGenerator = akkaPaintHistoryActorSystem.actorOf(
-      ClusterSingletonProxy.props(
-        singletonManagerPath = "/user/PicturePerMinuteGenerator",
-        settings = ClusterSingletonProxySettings(system).withRole("worker")
-      ),
-      name = "consumerProxy"
-    )
     historyGenerator ! ResetProjection()
     Ok(Json.toJson("Regeneration started"))
   }

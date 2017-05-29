@@ -6,8 +6,8 @@ import akka.NotUsed
 import akka.persistence.cassandra.query.scaladsl.CassandraReadJournal
 import akka.persistence.query.{ EventEnvelope, Offset, PersistenceQuery, TimeBasedUUID }
 import akka.persistence.{ PersistentActor, RecoveryCompleted }
-import akka.stream.{ ActorMaterializer, KillSwitch, KillSwitches, UniqueKillSwitch }
 import akka.stream.scaladsl.{ Keep, Sink, Source }
+import akka.stream.{ ActorMaterializer, KillSwitch, KillSwitches }
 import akka.util.Timeout
 import com.typesafe.config.Config
 import org.akkapaint.history.AkkaPaintDrawEventProjection.{ NewOffsetSaved, ResetProjection, SaveNewOffset, Start }
@@ -59,17 +59,22 @@ case class AkkaPaintDrawEventProjection(
 
   override def receiveCommand: Receive = {
     case Start =>
-      logger.info("Running history generation")
+      logger.info(s"From $persistenceId: Running history generation")
       startProjection(lastOffset)
   }
 
   def running(killSwitch: KillSwitch): Receive = {
-    case SaveNewOffset(offset) => //persist(NewOffsetSaved(offset)){ e => //is commented as for akkapaint use case there is no need to save each new offset
+    case SaveNewOffset(offset) => persist(NewOffsetSaved(offset)) { e =>
       lastOffset = UUID.fromString(offset)
-    //}
+      val lastOffsetTime = new DateTime(readJournal.timestampFrom(TimeBasedUUID(lastOffset)))
+      logger.info(s"From $persistenceId: Saved new last offset: $lastOffsetTime")
+    }
     case ResetProjection(offset) =>
+      val resetOffset = offset.map(UUID.fromString).getOrElse(readJournal.firstOffset)
+      val timestamp = new DateTime(readJournal.timestampFrom(TimeBasedUUID(resetOffset)))
+      logger.info(s"From $persistenceId: Reset projection with timestamp: $timestamp")
       killSwitch.shutdown()
-      startProjection(offset.map(UUID.fromString).getOrElse(readJournal.firstOffset))
+      startProjection(resetOffset)
   }
 
   override def receiveRecover: Receive = {
@@ -77,32 +82,19 @@ case class AkkaPaintDrawEventProjection(
       lastOffset = UUID.fromString(offset)
     }
     case RecoveryCompleted => {
-      val timestamp = new DateTime(UUIDToDate.getTimeFromUUID(lastOffset)).toString("MM/dd/yyyy HH:mm:ss")
-      logger.info(s"Recovering AkkaPaintHistoryGenerator, last offset: $timestamp")
-      context.system.scheduler.schedule(1.minutes, 1.minutes)(saveSnapshot(NewOffsetSaved(lastOffset.toString)))
+      val timestamp = new DateTime(readJournal.timestampFrom(TimeBasedUUID(lastOffset))).toString("MM/dd/yyyy HH:mm:ss")
+      logger.info(s"From $persistenceId: Recovering AkkaPaintHistoryGenerator, last offset: $timestamp")
       self ! Start
     }
   }
 
-  def originalEventStream(firstOffset: UUID): Source[(DateTime, DrawEvent, TimeBasedUUID), NotUsed] = readJournal
-    .eventsByTag("draw_event", TimeBasedUUID(firstOffset))
-    .map {
-      case EventEnvelope(offset @ TimeBasedUUID(time), _, _, d: DrawEvent) =>
-        lastOffset = time
-        val timestamp = new DateTime(UUIDToDate.getTimeFromUUID(time))
-        (timestamp, d, offset)
-    }
-}
-
-import java.util.UUID
-
-object UUIDToDate {
-  // This method comes from Hector's TimeUUIDUtils class:
-  // https://github.com/rantav/hector/blob/master/core/src/main/java/me/prettyprint/cassandra/utils/TimeUUIDUtils.java
-  val NUM_100NS_INTERVALS_SINCE_UUID_EPOCH = 0x01b21dd213814000L
-
-  def getTimeFromUUID(uuid: UUID): Long = {
-    (uuid.timestamp() - NUM_100NS_INTERVALS_SINCE_UUID_EPOCH) / 10000
-  }
+  def originalEventStream(firstOffset: UUID): Source[(DateTime, DrawEvent, TimeBasedUUID), NotUsed] =
+    readJournal
+      .eventsByTag("draw_event", TimeBasedUUID(firstOffset))
+      .map {
+        case EventEnvelope(offset: TimeBasedUUID, _, _, d: DrawEvent) =>
+          val timestamp = new DateTime(readJournal.timestampFrom(offset))
+          (timestamp, d, offset)
+      }
 }
 

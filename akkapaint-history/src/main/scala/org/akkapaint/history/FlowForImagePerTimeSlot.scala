@@ -35,7 +35,7 @@ case class ImageAggregationFlowFactory()(implicit executionContext: ExecutionCon
         case (ImageUpdate(lastEmitDateTime, image, _, _), (datetime, d: DrawEvent, offset)) =>
           updateImageAndEmit(image, offset, lastEmitDateTime, datetime, d, timeSlot)
       }
-      .collect { case update: ImageUpdate if update.emit.isDefined => update.emit.get }
+      .collect { case ImageUpdate(_, _, _, Some(emit)) => emit }
 
   private def updateImageAndEmit(
     lastImage: BufferedImage,
@@ -53,7 +53,7 @@ case class ImageAggregationFlowFactory()(implicit executionContext: ExecutionCon
       val imageGeneratedWithinTimeSlot = ImageUpdateEmit(currentDateTime, byteImage, offset)
 
       //mutate image after generatingByteBuffer with previous image
-      val updatedImage = updateImage(lastImage, drawEvent.changes, drawEvent.color)
+      val updatedImage = updateImage(newDefaultImage(), drawEvent.changes, drawEvent.color)
       ImageUpdate(currentDateTime, updatedImage, offset, emit = Some(imageGeneratedWithinTimeSlot))
 
     } else {

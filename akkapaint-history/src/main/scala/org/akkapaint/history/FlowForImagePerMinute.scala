@@ -2,7 +2,7 @@ package org.akkapaint.history
 
 import akka.NotUsed
 import akka.persistence.query.Offset
-import akka.stream.scaladsl.Sink
+import akka.stream.scaladsl.{ Flow, Sink }
 import com.datastax.driver.core.Session
 import org.akkapaint.history.ImageAggregationFlowFactory.ImageUpdateEmit
 import org.akkapaint.proto.Messages.DrawEvent

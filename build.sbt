@@ -44,19 +44,19 @@ lazy val akkaPaintPerf = (project in file("akkapaint-perf"))
   .settings(libraryDependencies ++= Seq(
     "io.gatling.highcharts" % "gatling-charts-highcharts" % "2.2.2",
     "io.gatling"            % "gatling-test-framework"    % "2.2.2",
-    "com.typesafe.akka" %% "akka-http-experimental" % "2.4.10",
+    "com.typesafe.akka" %% "akka-http" % "10.0.7",
     "com.propensive" %% "rapture" % "2.0.0-M7"
   ))
 
 lazy val akkaDependencies = {
-  val akkaV = "2.5.0"
+  val akkaV = "2.5.2"
   Seq(
     "com.typesafe.akka" %% "akka-persistence" % akkaV,
     "com.typesafe.akka" %% "akka-cluster-sharding" % akkaV,
     "com.typesafe.akka" %% "akka-remote" % akkaV,
     "com.typesafe.akka" %% "akka-cluster" % akkaV,
     "com.typesafe.akka" %% "akka-persistence-query" % akkaV,
-    "com.typesafe.akka" %% "akka-persistence-cassandra" % "0.51"
+    "com.typesafe.akka" %% "akka-persistence-cassandra" % "0.53"
   )
 }
 

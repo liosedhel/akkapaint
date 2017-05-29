@@ -14,12 +14,12 @@ import scala.concurrent.ExecutionContext
 
 @Singleton
 class History @Inject() (
-    @Named("AkkaPaintHistory") actorSystem: ActorSystem,
+    @Named("AkkaPaintHistory") akkaPaintHistorySystem: ActorSystem,
     @Named("AkkaPaintHistoryConfig") akkaPaintHistoryConfig: Config
 ) {
 
   import scala.collection.JavaConverters._
-  implicit val ec: ExecutionContext = actorSystem.dispatcher
+  implicit val ec: ExecutionContext = akkaPaintHistorySystem.dispatcher
 
   val cassandraCluster =
     Cluster.builder()
@@ -27,20 +27,28 @@ class History @Inject() (
       .build()
   implicit val session = cassandraCluster.connect("akka")
 
-  actorSystem.actorOf(
+  akkaPaintHistorySystem.actorOf(
     ClusterSingletonManager.props(
-      singletonProps = Props(AkkaPaintDrawEventProjection("PerMinuteHistory", akkaPaintHistoryConfig, FlowForImagePerMinute())),
+      singletonProps = Props(AkkaPaintDrawEventProjection(
+        persistenceId = "PerMinuteHistory",
+        akkaPaintHistoryConfig = akkaPaintHistoryConfig,
+        generateConsumer = FlowForImagePerMinute()
+      )),
       terminationMessage = PoisonPill,
-      settings = ClusterSingletonManagerSettings(actorSystem)
+      settings = ClusterSingletonManagerSettings(akkaPaintHistorySystem)
     ),
     name = "PicturePerMinuteGenerator"
   )
 
-  actorSystem.actorOf(
+  akkaPaintHistorySystem.actorOf(
     ClusterSingletonManager.props(
-      singletonProps = Props(AkkaPaintDrawEventProjection("PerHourHistory", akkaPaintHistoryConfig, FlowForImagePerHour())),
+      singletonProps = Props(AkkaPaintDrawEventProjection(
+        persistenceId = "PerHourHistory",
+        akkaPaintHistoryConfig = akkaPaintHistoryConfig,
+        generateConsumer = FlowForImagePerHour()
+      )),
       terminationMessage = PoisonPill,
-      settings = ClusterSingletonManagerSettings(actorSystem)
+      settings = ClusterSingletonManagerSettings(akkaPaintHistorySystem)
     ),
     name = "PicturePerHourGenerator"
   )
@@ -51,9 +59,9 @@ class AkkaPaintModule extends AbstractModule {
   def configure() = {
 
     val akkaPaintHistoryConfig: Config = ConfigFactory.load("akkapaint-history.conf")
-    val actorSystem = ActorSystem("AkkaPaintHistory", akkaPaintHistoryConfig)
+    val akkaPaintHistorySystem = ActorSystem("AkkaPaintHistory", akkaPaintHistoryConfig)
 
-    bind(classOf[ActorSystem]).annotatedWith(Names.named("AkkaPaintHistory")).toInstance(actorSystem)
+    bind(classOf[ActorSystem]).annotatedWith(Names.named("AkkaPaintHistory")).toInstance(akkaPaintHistorySystem)
     bind(classOf[Config]).annotatedWith(Names.named("AkkaPaintHistoryConfig")).toInstance(akkaPaintHistoryConfig)
     bind(classOf[History]).asEagerSingleton()
   }
