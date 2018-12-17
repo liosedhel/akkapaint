@@ -2,8 +2,10 @@
 lazy val commonSettings = Seq(
   organization := "org.akkapaint",
   version := "0.1.0-SNAPSHOT",
-  scalaVersion := "2.11.8"
+  scalaVersion := "2.12.8"
 )
+
+val akkaV = "2.5.17"
 
 lazy val root = (project in file(".")).enablePlugins(PlayScala)
     .settings(commonSettings: _*)
@@ -15,7 +17,7 @@ lazy val root = (project in file(".")).enablePlugins(PlayScala)
       guice,
       "org.iq80.leveldb"            % "leveldb"          % "0.7",
       "org.fusesource.leveldbjni"   % "leveldbjni-all"   % "1.8",
-      "org.scalatestplus.play" %% "scalatestplus-play" % "1.5.0-RC1" % Test
+      "org.scalatestplus.play" %% "scalatestplus-play" % "3.1.2" % Test
     ))
     .aggregate(akkaPaintShard, akkaPaintHistory, akkaPaintPerf)
     .dependsOn(akkaPaintShard, akkaPaintHistory)
@@ -34,8 +36,8 @@ lazy val akkaPaintHistory = (project in file("akkapaint-history"))
   .dependsOn(akkaPaintShard)
   .settings(libraryDependencies ++= Seq(
     "joda-time" % "joda-time" % "2.9.6",
-    "com.datastax.cassandra" % "cassandra-driver-core" % "3.2.0",
-    "com.lightbend.akka" %% "akka-stream-alpakka-cassandra" % "0.7"
+    "com.datastax.cassandra" % "cassandra-driver-core" % "3.5.1",
+    "com.lightbend.akka" %% "akka-stream-alpakka-cassandra" % "1.0-M1"
   ))
 
 lazy val akkaPaintPerf = (project in file("akkapaint-perf"))
@@ -43,14 +45,14 @@ lazy val akkaPaintPerf = (project in file("akkapaint-perf"))
   .settings(commonSettings: _*)
   .enablePlugins(GatlingPlugin)
   .settings(libraryDependencies ++= Seq(
-    "io.gatling.highcharts" % "gatling-charts-highcharts" % "2.2.2",
-    "io.gatling"            % "gatling-test-framework"    % "2.2.2",
-    "com.typesafe.akka" %% "akka-http" % "10.0.8",
-    "com.propensive" %% "rapture" % "2.0.0-M7"
+    "io.gatling.highcharts" % "gatling-charts-highcharts" % "2.3.1",
+    "io.gatling"            % "gatling-test-framework"    % "2.3.1",
+    "com.typesafe.akka" %% "akka-http" % "10.1.5",
+    "com.typesafe.akka" %% "akka-stream" % akkaV,
+    "com.propensive" %% "rapture" % "2.0.0-M9"
   ))
 
 lazy val akkaDependencies = {
-  val akkaV = "2.5.3"
   Seq(
     "com.typesafe.akka" %% "akka-persistence" % akkaV,
     "com.typesafe.akka" %% "akka-cluster-sharding" % akkaV,
