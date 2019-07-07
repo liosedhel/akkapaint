@@ -13,6 +13,7 @@ Try it!
 ===========
 
 * Install and run [cassandra](http://cassandra.apache.org/) database 
+
 Probably the easiest way to do so:
 ```bash
 docker run --name akka-paint-cassandra -p 9042:9042 -d cassandra:latest
