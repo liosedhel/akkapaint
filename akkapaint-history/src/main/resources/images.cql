@@ -1,11 +1,16 @@
-CREATE TABLE akka.pictures_hours (
+CREATE KEYSPACE akka_history WITH REPLICATION = {
+'class' : 'SimpleStrategy',
+'replication_factor' : 1
+};
+
+CREATE TABLE akka_history.pictures_hours (
     date text,
     hour int,
     picture blob,
     PRIMARY KEY ((date), hour)
 );
 
-CREATE TABLE akka.pictures_minutes (
+CREATE TABLE akka_history.pictures_minutes (
     date text,
     hour int,
     minutes int,
@@ -13,7 +18,7 @@ CREATE TABLE akka.pictures_minutes (
     PRIMARY KEY ((date, hour), minutes)
 );
 
-create TABLE akka.changes(
+create TABLE akka_history.changes(
     year int,
     date text,
     hour int,
@@ -22,7 +27,7 @@ create TABLE akka.changes(
 ) WITH CLUSTERING ORDER BY (date DESC, hour DESC, minutes DESC);
 
 
-create TABLE akka.temp_tag_migration(
+create TABLE akka_history.temp_tag_migration(
     persistence_id text,
     partition_nr bigint,
     sequence_nr bigint,
@@ -33,6 +38,4 @@ create TABLE akka.temp_tag_migration(
     PRIMARY KEY ((persistence_id, partition_nr), sequence_nr, timestamp, timebucket)
 );
 
-create index tag_index on akka.temp_tag_migration (tag1);
-
-(persistence_id, partition_nr, sequence_nr, timestamp, timebucket, ser_manifest, tag1)
+create index tag_index on akka_history.temp_tag_migration (tag1);

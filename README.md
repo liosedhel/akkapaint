@@ -12,7 +12,16 @@ More info about the project can be found [here](http://virtuslab.com/blog/akkapa
 Try it!
 ===========
 
-* Install and run [cassandra](http://cassandra.apache.org/) database or change the `akkapaint-web.conf` file for other database (e.g. [in memory database](https://github.com/dnvriend/akka-persistence-inmemory))
+* Install and run [cassandra](http://cassandra.apache.org/) database 
+Probably the easiest way to do so:
+```bash
+docker run --name akka-paint-cassandra -p 9042:9042 -d cassandra:latest
+```
+Create tables structure for akkapaint-history feature:
+```bash
+docker cp ./akkapaint-history/src/main/resources/images.cql akka-paint-cassandra:images.cql
+docker exec -it akka-paint-cassandra cqlsh -f images.cql
+```
 * Simply type `sbt run` and go to the address [http://localhost:9000/demo](http://localhost:9000/demo).
 
 Open the second window to see real time changes!

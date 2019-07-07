@@ -27,7 +27,9 @@ object ImageUtils {
       for (col <- 0 until width) {
         val hex = s"#${Integer.toHexString(image.getRGB(col, row)).substring(2)}"
         val updatedPixelList =
-          colorToPixelsMap.get(hex).map(pixels => { pixels += row; pixels += col; pixels; })
+          colorToPixelsMap
+            .get(hex)
+            .map(pixels => { pixels += row; pixels += col; pixels; })
             .getOrElse(ListBuffer(row, col))
 
         colorToPixelsMap.put(hex, updatedPixelList)

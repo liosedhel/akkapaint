@@ -2,7 +2,7 @@ package org.akkapaint.history
 
 import akka.NotUsed
 import akka.persistence.query.Offset
-import akka.stream.scaladsl.{ Flow, Sink }
+import akka.stream.scaladsl.{Flow, Sink}
 import com.datastax.driver.core.Session
 import org.akkapaint.history.ImageAggregationFlowFactory.ImageUpdateEmit
 import org.akkapaint.proto.Messages.DrawEvent
@@ -46,10 +46,10 @@ case class FlowForImagePerMinute()(implicit session: Session, executionContext: 
   )
 
   override def apply(commitOffset: (Offset) => Unit): Sink[(DateTime, DrawEvent, Offset), NotUsed] = {
-    ImageAggregationFlowFactory().generate(org.joda.time.Minutes.ONE)
+    ImageAggregationFlowFactory()
+      .generate(org.joda.time.Minutes.ONE)
       .via(flowForImagePerMinute)
       .via(flowForSaveChangesList)
       .to(Sink.foreach(t => commitOffset(t.offset)))
   }
 }
-

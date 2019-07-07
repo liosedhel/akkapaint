@@ -4,13 +4,13 @@ import java.util.UUID
 
 import akka.NotUsed
 import akka.persistence.cassandra.query.scaladsl.CassandraReadJournal
-import akka.persistence.query.{ EventEnvelope, Offset, PersistenceQuery, TimeBasedUUID }
-import akka.persistence.{ PersistentActor, RecoveryCompleted }
-import akka.stream.scaladsl.{ Keep, Sink, Source }
-import akka.stream.{ ActorMaterializer, KillSwitch, KillSwitches }
+import akka.persistence.query.{EventEnvelope, Offset, PersistenceQuery, TimeBasedUUID}
+import akka.persistence.{PersistentActor, RecoveryCompleted}
+import akka.stream.scaladsl.{Keep, Sink, Source}
+import akka.stream.{ActorMaterializer, KillSwitch, KillSwitches}
 import akka.util.Timeout
 import com.typesafe.config.Config
-import org.akkapaint.history.AkkaPaintDrawEventProjection.{ NewOffsetSaved, ResetProjection, SaveNewOffset, Start }
+import org.akkapaint.history.AkkaPaintDrawEventProjection.{NewOffsetSaved, ResetProjection, SaveNewOffset, Start}
 import org.akkapaint.proto.Messages.DrawEvent
 import org.joda.time.DateTime
 import org.slf4j.LoggerFactory
@@ -27,9 +27,9 @@ object AkkaPaintDrawEventProjection {
 }
 
 case class AkkaPaintDrawEventProjection(
-    persistenceId: String,
-    akkaPaintHistoryConfig: Config,
-    generateConsumer: (Offset => Unit) => Sink[(DateTime, DrawEvent, Offset), NotUsed]
+  persistenceId: String,
+  akkaPaintHistoryConfig: Config,
+  generateConsumer: (Offset => Unit) => Sink[(DateTime, DrawEvent, Offset), NotUsed]
 ) extends PersistentActor {
 
   private val logger = LoggerFactory.getLogger(getClass)
@@ -51,7 +51,7 @@ case class AkkaPaintDrawEventProjection(
       .viaMat(KillSwitches.single)(Keep.right)
       .toMat(generateConsumer({
         case TimeBasedUUID(uuid) => self ! SaveNewOffset(uuid.toString)
-        case _ =>
+        case _                   =>
       }))(Keep.both)
       .run()
     context.become(running(killSwitch))
@@ -64,11 +64,12 @@ case class AkkaPaintDrawEventProjection(
   }
 
   def running(killSwitch: KillSwitch): Receive = {
-    case SaveNewOffset(offset) => persist(NewOffsetSaved(offset)) { e =>
-      lastOffset = UUID.fromString(offset)
-      val lastOffsetTime = new DateTime(readJournal.timestampFrom(TimeBasedUUID(lastOffset)))
-      logger.info(s"From $persistenceId: Saved new last offset: $lastOffsetTime")
-    }
+    case SaveNewOffset(offset) =>
+      persist(NewOffsetSaved(offset)) { e =>
+        lastOffset = UUID.fromString(offset)
+        val lastOffsetTime = new DateTime(readJournal.timestampFrom(TimeBasedUUID(lastOffset)))
+        logger.info(s"From $persistenceId: Saved new last offset: $lastOffsetTime")
+      }
     case ResetProjection(offset) =>
       val resetOffset = offset.map(UUID.fromString).getOrElse(readJournal.firstOffset)
       val timestamp = new DateTime(readJournal.timestampFrom(TimeBasedUUID(resetOffset)))
@@ -97,4 +98,3 @@ case class AkkaPaintDrawEventProjection(
           (timestamp, d, offset)
       }
 }
-

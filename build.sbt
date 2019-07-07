@@ -20,7 +20,7 @@ lazy val root = (project in file(".")).enablePlugins(PlayScala)
       "org.scalatestplus.play" %% "scalatestplus-play" % "3.1.2" % Test
     ))
     .aggregate(akkaPaintShard, akkaPaintHistory, akkaPaintPerf)
-    .dependsOn(akkaPaintShard, akkaPaintHistory)
+    .dependsOn(akkaPaintShard, akkaPaintHistory, akkaPaintPerf)
 
 lazy val akkaPaintShard = (project in file("akkapaint-shard"))
   .settings(commonSettings: _*)
@@ -65,10 +65,9 @@ lazy val akkaDependencies = {
 
 resolvers += "scalaz-bintray" at "http://dl.bintray.com/scalaz/releases"
 
-SbtScalariform.defaultScalariformSettings
-excludeFilter in scalariformFormat := (excludeFilter in scalariformFormat).value ||
-  "Routes.scala" ||
-  "ReverseRoutes.scala" ||
-  "JavaScriptReverseRoutes.scala" ||
-  "RoutesPrefix.scala"
+//excludeFilter in scalariformFormat := (excludeFilter in scalariformFormat).value ||
+//  "Routes.scala" ||
+//  "ReverseRoutes.scala" ||
+//  "JavaScriptReverseRoutes.scala" ||
+//  "RoutesPrefix.scala"
 

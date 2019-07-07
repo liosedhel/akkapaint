@@ -9,14 +9,19 @@ import javax.imageio.ImageIO
 import akka.NotUsed
 import akka.persistence.query.Offset
 import akka.stream.scaladsl.Flow
-import org.akkapaint.history.ImageAggregationFlowFactory.{ ImageUpdate, ImageUpdateEmit }
-import org.akkapaint.proto.Messages.{ DrawEvent, Pixel }
-import org.joda.time.{ DateTime, ReadablePeriod }
+import org.akkapaint.history.ImageAggregationFlowFactory.{ImageUpdate, ImageUpdateEmit}
+import org.akkapaint.proto.Messages.{DrawEvent, Pixel}
+import org.joda.time.{DateTime, ReadablePeriod}
 
 import scala.concurrent.ExecutionContext
 
 object ImageAggregationFlowFactory {
-  case class ImageUpdate(lastEmitDateTime: DateTime, image: BufferedImage, offset: Offset, emit: Option[ImageUpdateEmit] = None)
+  case class ImageUpdate(
+    lastEmitDateTime: DateTime,
+    image: BufferedImage,
+    offset: Offset,
+    emit: Option[ImageUpdateEmit] = None
+  )
   case class ImageUpdateEmit(dateTime: DateTime, image: ByteBuffer, offset: Offset)
 }
 
@@ -29,9 +34,10 @@ case class ImageAggregationFlowFactory()(implicit executionContext: ExecutionCon
   import javax.imageio.ImageIO
 
   def generate(timeSlot: ReadablePeriod): Flow[(DateTime, DrawEvent, Offset), ImageUpdateEmit, NotUsed] =
-    Flow[(DateTime, DrawEvent, Offset)].scan(
-      ImageUpdate(defaultDate, newDefaultImage(), offset = Offset.noOffset)
-    ) {
+    Flow[(DateTime, DrawEvent, Offset)]
+      .scan(
+        ImageUpdate(defaultDate, newDefaultImage(), offset = Offset.noOffset)
+      ) {
         case (ImageUpdate(lastEmitDateTime, image, _, _), (datetime, d: DrawEvent, offset)) =>
           updateImageAndEmit(image, offset, lastEmitDateTime, datetime, d, timeSlot)
       }

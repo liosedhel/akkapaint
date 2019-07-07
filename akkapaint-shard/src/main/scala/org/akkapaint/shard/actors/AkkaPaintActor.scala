@@ -1,7 +1,7 @@
 package org.akkapaint.shard.actors
 
-import akka.actor.{ ActorLogging, ActorRef, ExtendedActorSystem, Props }
-import akka.persistence.{ PersistentActor, RecoveryCompleted, SnapshotOffer }
+import akka.actor.{ActorLogging, ActorRef, ExtendedActorSystem, Props}
+import akka.persistence.{PersistentActor, RecoveryCompleted, SnapshotOffer}
 import akka.serialization.Serialization
 import org.akkapaint.proto.Messages._
 
@@ -24,8 +24,8 @@ class AkkaPaintActor() extends PersistentActor with ActorLogging {
   override def persistenceId: String = "akkaPaintActor" + self.path.toStringWithoutAddress
 
   override def receiveRecover: Receive = {
-    case d: DrawEvent => updateState(d)
-    case r: RegisterClient => registerClient(r)
+    case d: DrawEvent         => updateState(d)
+    case r: RegisterClient    => registerClient(r)
     case ur: UnregisterClient => unregisterClient(ur)
     case SnapshotOffer(_, snapshot: DrawSnapshot) => {
       snapshot.changes.foreach(updateState)
@@ -51,22 +51,26 @@ class AkkaPaintActor() extends PersistentActor with ActorLogging {
         (registeredClients - sender())
           .foreach(_ ! Changes(de.changes, de.color))
       }
-    case r: RegisterClient => persistAsync(r) { r =>
-      val clientRef = registerClient(r)
-      convertBoardToUpdates(akkaPaintBoard, Changes.apply).foreach(clientRef ! _)
-    }
-    case ur: UnregisterClient => persistAsync(ur) { ur =>
-      unregisterClient(ur)
-    }
-    case "snap" => saveSnapshot(DrawSnapshot(
-      convertBoardToUpdates(akkaPaintBoard, DrawEvent.apply).toSeq,
-      registeredClients.map(Serialization.serializedActorPath).toSeq
-    ))
+    case r: RegisterClient =>
+      persistAsync(r) { r =>
+        val clientRef = registerClient(r)
+        convertBoardToUpdates(akkaPaintBoard, Changes.apply).foreach(clientRef ! _)
+      }
+    case ur: UnregisterClient =>
+      persistAsync(ur) { ur =>
+        unregisterClient(ur)
+      }
+    case "snap" =>
+      saveSnapshot(
+        DrawSnapshot(
+          convertBoardToUpdates(akkaPaintBoard, DrawEvent.apply).toSeq,
+          registeredClients.map(Serialization.serializedActorPath).toSeq
+        )
+      )
   }
 
-  private def updateState(drawEvent: DrawEvent) = {
+  private def updateState(drawEvent: DrawEvent) =
     drawEvent.changes.foreach(pixel => akkaPaintBoard.put(pixel, drawEvent.color))
-  }
 
   private def registerClient(register: RegisterClient) = {
     val clientRef = resolveActorRef(register.client)
@@ -79,9 +83,8 @@ class AkkaPaintActor() extends PersistentActor with ActorLogging {
     registeredClients.remove(clientRef)
   }
 
-  private def resolveActorRef(client: String): ActorRef = {
+  private def resolveActorRef(client: String): ActorRef =
     context.system.asInstanceOf[ExtendedActorSystem].provider.resolveActorRef(client)
-  }
 
   private def convertBoardToUpdates[T](
     akkaPaintBoard: mutable.Map[Pixel, String],

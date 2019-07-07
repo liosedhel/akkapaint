@@ -3,12 +3,12 @@ package org.akkapaint.perf
 import java.awt.image.BufferedImage
 import javax.imageio.ImageIO
 
-import akka.{ Done, NotUsed }
+import akka.{Done, NotUsed}
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.ws.{ TextMessage, WebSocketRequest }
+import akka.http.scaladsl.model.ws.{TextMessage, WebSocketRequest}
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{ Keep, Sink, Source }
+import akka.stream.scaladsl.{Keep, Sink, Source}
 import io.gatling.core.Predef._
 import io.gatling.http.Predef._
 import org.akkapaint.perf.utils.ImageUtils
@@ -47,7 +47,9 @@ class AkkaPaintSimulation extends Simulation {
     http.baseURL("http://localhost:9000").wsBaseURL("ws://localhost:9000")
 
   val scn = scenario("Gatling")
-    .exec(ws("index").open("/socket")).pause(1).foreach(array.toSeq, "draw") { exec({ ws("index").sendText("${draw}") }) }
+    .exec(ws("index").open("/socket"))
+    .pause(1)
+    .foreach(array.toSeq, "draw") { exec({ ws("index").sendText("${draw}") }) }
 
   setUp(scn.inject(atOnceUsers(2)))
     .protocols(conf)

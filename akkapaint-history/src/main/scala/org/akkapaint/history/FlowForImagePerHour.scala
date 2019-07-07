@@ -5,7 +5,7 @@ import java.nio.ByteBuffer
 import akka.NotUsed
 import akka.persistence.query.Offset
 import akka.stream.alpakka.cassandra.scaladsl.CassandraSink
-import akka.stream.scaladsl.{ Flow, Sink }
+import akka.stream.scaladsl.{Flow, Sink}
 import com.datastax.driver.core.Session
 import org.akkapaint.history.ImageAggregationFlowFactory.ImageUpdateEmit
 import org.akkapaint.proto.Messages.DrawEvent

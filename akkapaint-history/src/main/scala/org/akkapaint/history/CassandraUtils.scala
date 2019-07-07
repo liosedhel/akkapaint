@@ -1,9 +1,9 @@
 package org.akkapaint.history
 
 import akka.NotUsed
-import com.google.common.util.concurrent.{ FutureCallback, Futures, ListenableFuture }
+import com.google.common.util.concurrent.{FutureCallback, Futures, ListenableFuture}
 
-import scala.concurrent.{ Future, Promise }
+import scala.concurrent.{Future, Promise}
 
 object GuavaFutures {
   implicit final class GuavaFutureOpts[A](val guavaFut: ListenableFuture[A]) extends AnyVal {
@@ -20,7 +20,7 @@ object GuavaFutures {
 }
 
 import akka.stream.scaladsl.Flow
-import com.datastax.driver.core.{ BoundStatement, PreparedStatement, Session }
+import com.datastax.driver.core.{BoundStatement, PreparedStatement, Session}
 import org.akkapaint.history.GuavaFutures._
 
 import scala.concurrent.ExecutionContext
@@ -36,4 +36,3 @@ object CassandraFlow {
         session.executeAsync(statementBinder(t, statement)).asScala().map(_ => t)
       }
 }
-

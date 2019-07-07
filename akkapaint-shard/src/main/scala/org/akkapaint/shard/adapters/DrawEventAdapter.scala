@@ -1,7 +1,7 @@
 package org.akkapaint.shard.adapters
 
 import akka.actor.ExtendedActorSystem
-import akka.persistence.journal.{ EventAdapter, EventSeq, Tagged }
+import akka.persistence.journal.{EventAdapter, EventSeq, Tagged}
 import org.akkapaint.proto.Messages.DrawEvent
 
 class DrawEventAdapter(system: ExtendedActorSystem) extends EventAdapter {

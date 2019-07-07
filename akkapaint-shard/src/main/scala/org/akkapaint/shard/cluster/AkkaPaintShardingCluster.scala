@@ -1,12 +1,12 @@
 package org.akkapaint.shard.cluster
 
 import akka.actor._
-import akka.cluster.sharding.{ ClusterSharding, ClusterShardingSettings, ShardRegion }
+import akka.cluster.sharding.{ClusterSharding, ClusterShardingSettings, ShardRegion}
 import akka.serialization.Serialization
 import com.typesafe.config.Config
 import org.akkapaint.proto.Messages._
 import org.akkapaint.shard.actors.AkkaPaintActor
-import BoardShardUtils.{ ShardingUnregister, ShardingRegister }
+import BoardShardUtils.{ShardingRegister, ShardingUnregister}
 
 object BoardShardUtils {
 
@@ -19,12 +19,15 @@ object BoardShardUtils {
     val entityNumber = width / entitySize
 
     def shardingPixels(changes: Iterable[Pixel], color: String): Iterable[DrawEntity] = {
-      changes.groupBy { pixel =>
-        (pixel.y / entitySize, pixel.x / entitySize)
-      }.map {
-        case ((shardId, entityId), pixels) =>
-          DrawEntity(shardId, entityId, pixels.toSeq, color)
-      }.toIterable
+      changes
+        .groupBy { pixel =>
+          (pixel.y / entitySize, pixel.x / entitySize)
+        }
+        .map {
+          case ((shardId, entityId), pixels) =>
+            DrawEntity(shardId, entityId, pixels.toSeq, color)
+        }
+        .toIterable
     }
 
     def registerToAll(self: ActorRef): Iterable[ShardingRegister] = {
@@ -52,8 +55,10 @@ class AkkaPaintShardingCluster {
 
   private val extractEntityId: ShardRegion.ExtractEntityId = {
     case DrawEntity(_, entityId, pixels, color) ⇒ (entityId.toString, Draw(pixels, color))
-    case ShardingRegister(_, entityId, client) ⇒ (entityId.toString, RegisterClient(Serialization.serializedActorPath(client)))
-    case ShardingUnregister(_, entityId, client) ⇒ (entityId.toString, UnregisterClient(Serialization.serializedActorPath(client)))
+    case ShardingRegister(_, entityId, client) ⇒
+      (entityId.toString, RegisterClient(Serialization.serializedActorPath(client)))
+    case ShardingUnregister(_, entityId, client) ⇒
+      (entityId.toString, UnregisterClient(Serialization.serializedActorPath(client)))
   }
 
   private val extractShardId: ShardRegion.ExtractShardId = {
@@ -76,8 +81,7 @@ class AkkaPaintShardingCluster {
     system
   }
 
-  def shardRegion()(implicit actorSystem: ActorSystem) = {
+  def shardRegion()(implicit actorSystem: ActorSystem) =
     ClusterSharding(actorSystem).shardRegion(regionName)
-  }
 
 }
